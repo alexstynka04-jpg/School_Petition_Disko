@@ -122,8 +122,51 @@ button:disabled{
   color:#aaa;
 }
 
-.already{
-  opacity:0.8;
+.org{
+  margin-top:45px;
+  padding-top:20px;
+  border-top:1px solid #ffffff25;
+  text-align:center;
+}
+
+.org button{
+  background:transparent;
+  color:#aaa;
+  border:1px solid #ffffff30;
+  font-size:14px;
+}
+
+.org button:hover{
+  background:#ffffff12;
+  color:#fff;
+}
+
+#adminPanel{
+  display:none;
+  margin-top:20px;
+  padding:20px;
+  background:#0005;
+  border-radius:16px;
+}
+
+#adminPanel h3{
+  margin-top:0;
+}
+
+#signaturesList{
+  margin-top:15px;
+}
+
+.person{
+  padding:12px;
+  margin:8px 0;
+  background:#ffffff12;
+  border-radius:10px;
+}
+
+.closeAdmin{
+  margin-top:15px;
+  background:#444;
 }
 </style>
 </head>
@@ -178,7 +221,35 @@ button:disabled{
 
   <div id="msg"></div>
 
+
+  <!-- РОЗДІЛ ДЛЯ ОРГАНІЗАЦІЇ -->
+
+  <div class="org">
+
+    <button id="orgButton" onclick="openAdmin()">
+      🔐 Для організації
+    </button>
+
+    <div id="adminPanel">
+
+      <h3>👥 Список підписантів</h3>
+
+      <div id="signaturesList">
+        Завантаження...
+      </div>
+
+      <button
+        class="closeAdmin"
+        onclick="closeAdmin()">
+        Закрити
+      </button>
+
+    </div>
+
+  </div>
+
 </div>
+
 
 <script>
 
@@ -188,14 +259,14 @@ const db = supabase.createClient(
 );
 
 
-/* Створюємо унікальний ID для цього браузера */
+/* Унікальний ID браузера */
 
-let deviceId = localStorage.getItem("petition_device_id");
+let deviceId =
+  localStorage.getItem("petition_device_id");
 
 if(!deviceId){
 
-  deviceId =
-    crypto.randomUUID();
+  deviceId = crypto.randomUUID();
 
   localStorage.setItem(
     "petition_device_id",
@@ -205,7 +276,7 @@ if(!deviceId){
 }
 
 
-/* Завантаження кількості підписів */
+/* Завантаження лічильника */
 
 async function load(){
 
@@ -222,7 +293,7 @@ async function load(){
 }
 
 
-/* Перевіряємо, чи цей пристрій уже голосував */
+/* Перевірка пристрою */
 
 async function checkDevice(){
 
@@ -241,16 +312,15 @@ async function checkDevice(){
     document.getElementById("msg").textContent =
       "✅ Ви вже підписали це звернення з цього пристрою.";
 
-    document.getElementById("msg").classList.add("already");
-
   }
 
 }
 
 
-/* Підпис */
+/* Додавання підпису */
 
-document.getElementById("form").onsubmit = async e => {
+document.getElementById("form").onsubmit =
+async e => {
 
   e.preventDefault();
 
@@ -286,8 +356,6 @@ document.getElementById("form").onsubmit = async e => {
 
   if(r.error){
 
-    /* Якщо такий пристрій уже є */
-
     if(r.error.code === "23505"){
 
       msg.textContent =
@@ -296,9 +364,7 @@ document.getElementById("form").onsubmit = async e => {
       input.disabled = true;
 
       return;
-
     }
-
 
     msg.textContent =
       "❌ Не вдалося зберегти підпис.";
@@ -324,7 +390,97 @@ document.getElementById("form").onsubmit = async e => {
 };
 
 
-/* Запускаємо */
+/* =========================
+   РОЗДІЛ ОРГАНІЗАЦІЇ
+   ========================= */
+
+async function openAdmin(){
+
+  const password =
+    prompt("🔐 Введіть пароль:");
+
+  if(password !== "8959"){
+
+    alert("❌ Неправильний пароль.");
+
+    return;
+  }
+
+
+  document.getElementById("adminPanel").style.display =
+    "block";
+
+  document.getElementById("orgButton").style.display =
+    "none";
+
+
+  const list =
+    document.getElementById("signaturesList");
+
+  list.textContent =
+    "⏳ Завантаження підписів...";
+
+
+  const r = await db
+    .from("signatures")
+    .select("name, created_at")
+    .order("created_at", {
+      ascending:false
+    });
+
+
+  if(r.error){
+
+    list.textContent =
+      "❌ Не вдалося завантажити список.";
+
+    return;
+  }
+
+
+  if(!r.data || r.data.length === 0){
+
+    list.textContent =
+      "Підписів поки немає.";
+
+    return;
+  }
+
+
+  list.innerHTML = "";
+
+
+  r.data.forEach((person,index) => {
+
+    const div =
+      document.createElement("div");
+
+    div.className = "person";
+
+    div.textContent =
+      (index + 1) + ". " + person.name;
+
+    list.appendChild(div);
+
+  });
+
+}
+
+
+/* Закриття списку */
+
+function closeAdmin(){
+
+  document.getElementById("adminPanel").style.display =
+    "none";
+
+  document.getElementById("orgButton").style.display =
+    "inline-block";
+
+}
+
+
+/* Запуск */
 
 load();
 
