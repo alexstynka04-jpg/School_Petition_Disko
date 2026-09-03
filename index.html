@@ -108,6 +108,11 @@ button:hover{
   background:#8b82ff;
 }
 
+button:disabled{
+  background:#555;
+  cursor:not-allowed;
+}
+
 #msg{
   margin-top:15px;
   font-weight:bold;
@@ -115,6 +120,10 @@ button:hover{
 
 .email{
   color:#aaa;
+}
+
+.already{
+  opacity:0.8;
 }
 </style>
 </head>
@@ -153,6 +162,7 @@ button:hover{
   <h2>✍️ Підтримуєш ідею?</h2>
 
   <form id="form">
+
     <input
       id="name"
       placeholder="Твоє ім’я"
@@ -160,9 +170,10 @@ button:hover{
       required
     >
 
-    <button type="submit">
+    <button id="button" type="submit">
       Підписати
     </button>
+
   </form>
 
   <div id="msg"></div>
@@ -176,6 +187,26 @@ const db = supabase.createClient(
   "sb_publishable_uAdiR8RslSjXKVKL0Sy0Yw_1lbF63uR"
 );
 
+
+/* Створюємо унікальний ID для цього браузера */
+
+let deviceId = localStorage.getItem("petition_device_id");
+
+if(!deviceId){
+
+  deviceId =
+    crypto.randomUUID();
+
+  localStorage.setItem(
+    "petition_device_id",
+    deviceId
+  );
+
+}
+
+
+/* Завантаження кількості підписів */
+
 async function load(){
 
   const r = await db
@@ -187,42 +218,117 @@ async function load(){
 
   document.getElementById("count").textContent =
     r.error ? "—" : (r.count ?? 0);
+
 }
+
+
+/* Перевіряємо, чи цей пристрій уже голосував */
+
+async function checkDevice(){
+
+  const r = await db
+    .from("signatures")
+    .select("id")
+    .eq("device_id", deviceId)
+    .maybeSingle();
+
+  if(r.data){
+
+    document.getElementById("button").disabled = true;
+
+    document.getElementById("name").disabled = true;
+
+    document.getElementById("msg").textContent =
+      "✅ Ви вже підписали це звернення з цього пристрою.";
+
+    document.getElementById("msg").classList.add("already");
+
+  }
+
+}
+
+
+/* Підпис */
 
 document.getElementById("form").onsubmit = async e => {
 
   e.preventDefault();
 
-  const n = document
-    .getElementById("name")
-    .value
-    .trim();
+  const input =
+    document.getElementById("name");
+
+  const button =
+    document.getElementById("button");
+
+  const msg =
+    document.getElementById("msg");
+
+  const n =
+    input.value.trim();
 
   if(!n){
     return;
   }
 
+  button.disabled = true;
+
+  msg.textContent =
+    "⏳ Зберігаємо підпис...";
+
+
   const r = await db
     .from("signatures")
     .insert({
-      name:n
+      name:n,
+      device_id:deviceId
     });
 
-  document.getElementById("msg").textContent =
-    r.error
-      ? "❌ Не вдалося зберегти підпис."
-      : "✅ Дякуємо! Підпис додано.";
 
-  if(!r.error){
+  if(r.error){
 
-    document.getElementById("name").value = "";
+    /* Якщо такий пристрій уже є */
 
-    load();
+    if(r.error.code === "23505"){
+
+      msg.textContent =
+        "⚠️ З цього пристрою вже було додано підпис.";
+
+      input.disabled = true;
+
+      return;
+
+    }
+
+
+    msg.textContent =
+      "❌ Не вдалося зберегти підпис.";
+
+    button.disabled = false;
+
+    return;
+
   }
+
+
+  input.value = "";
+
+  input.disabled = true;
+
+  button.disabled = true;
+
+  msg.textContent =
+    "✅ Дякуємо! Підпис додано.";
+
+  load();
 
 };
 
+
+/* Запускаємо */
+
 load();
+
+checkDevice();
 
 </script>
 
